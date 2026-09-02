@@ -61,6 +61,25 @@ a{color:inherit;text-decoration:none}
 .hero-meta{display:flex;justify-content:flex-end;gap:10px 8px;flex-wrap:wrap;max-width:460px;margin-left:auto}
 .pill{padding:9px 11px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.28);font-family:var(--mono);font-size:10px;color:#c9cec9}
 
+.history{background:#171b18;color:#f1f3ee;overflow:hidden}
+.history-head{display:flex;justify-content:space-between;align-items:end;gap:50px;margin-bottom:80px}
+.history h2{font-size:clamp(55px,8vw,128px);line-height:.82;letter-spacing:-.08em;margin:22px 0 0}
+.history h2 span{color:var(--lime)}
+.history-head p{max-width:390px;color:#aeb6ae;font-size:17px;line-height:1.55}
+.timeline{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-top:1px solid rgba(255,255,255,.2)}
+.timeline:before{content:"";position:absolute;left:0;right:0;top:-1px;height:2px;background:linear-gradient(90deg,#5b625d,var(--lime),#5b625d);transform:scaleX(.2);transform-origin:left;transition:transform .8s ease}
+.history.is-visible .timeline:before{transform:scaleX(1)}
+.timeline-card{position:relative;min-height:330px;padding:30px 25px 28px;border-right:1px solid rgba(255,255,255,.14);cursor:pointer;transition:background .35s,transform .35s}
+.timeline-card:last-child{border-right:0}
+.timeline-card:before{content:"";position:absolute;top:-7px;left:25px;width:12px;height:12px;border:2px solid var(--lime);background:#171b18;border-radius:50%;transition:background .25s,transform .25s}
+.timeline-card:hover,.timeline-card.active{background:rgba(184,255,50,.08);transform:translateY(-8px)}
+.timeline-card.active:before{background:var(--lime);transform:scale(1.35)}
+.timeline-year{font-size:clamp(35px,4vw,66px);font-weight:800;letter-spacing:-.08em;color:var(--lime)}
+.timeline-card h3{font-size:20px;margin:42px 0 12px}
+.timeline-card p{max-width:210px;color:#aeb6ae;line-height:1.5;margin:0}
+.timeline-detail{display:grid;grid-template-columns:1fr 1.4fr;gap:25px;margin-top:35px;padding:22px 0;border-top:1px solid rgba(255,255,255,.15);color:#aeb6ae;font-family:var(--mono);font-size:11px;line-height:1.6}
+.timeline-detail strong{color:var(--lime);font-size:10px;letter-spacing:.12em}
+
 .statement{background:var(--paper);color:var(--ink);overflow:hidden}
 .statement .kicker{color:#60703c}
 .statement h2{font-size:clamp(54px,8vw,126px);line-height:.88;letter-spacing:-.07em;margin:28px 0 70px;max-width:1150px}
@@ -211,6 +230,14 @@ a{color:inherit;text-decoration:none}
   .gallery-side{grid-template-rows:300px 300px}
   .video-head,.gallery-head,.flow-head{display:block}
   .video-card{aspect-ratio:16/10}
+  .history-head{display:block;margin-bottom:55px}
+  .timeline{grid-template-columns:1fr;border-top:0;border-left:1px solid rgba(255,255,255,.2);margin-left:7px}
+  .timeline:before{top:0;bottom:0;left:-1px;right:auto;width:2px;height:auto;transform:scaleY(.2);transform-origin:top}
+  .history.is-visible .timeline:before{transform:scaleY(1)}
+  .timeline-card{min-height:0;padding:22px 22px 25px 35px;border-right:0;border-bottom:1px solid rgba(255,255,255,.14)}
+  .timeline-card:before{left:-7px;top:25px}
+  .timeline-card h3{margin:8px 0 8px}
+  .timeline-detail{grid-template-columns:1fr;margin-top:28px}
 }
 </style>
 </head>
@@ -220,6 +247,7 @@ a{color:inherit;text-decoration:none}
 <header class="topbar">
   <a class="brand" href="#top"><span class="brand-mark"></span>INDÚSTRIA 5.0 / EXPERIENCE</a>
   <nav class="nav">
+    <a href="#historico">histórico</a>
     <a href="#conceito">conceito</a>
     <a href="#robotica">robótica</a>
     <a href="#digital">digital twin</a>
@@ -240,6 +268,23 @@ a{color:inherit;text-decoration:none}
         <span class="pill">HUMAN + ROBOT</span><span class="pill">AI</span><span class="pill">SUSTAINABILITY</span>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="section history" id="historico">
+  <div class="container">
+    <div class="history-head">
+      <div><span class="kicker">01 / De onde viemos</span><h2>Marcos<br><span>da Indústria.</span></h2></div>
+      <p>A Indústria 5.0 não surgiu de repente. Ela é o próximo capítulo de uma transformação que atravessa máquinas, eletricidade, computadores e dados.</p>
+    </div>
+    <div class="timeline" role="list" aria-label="Linha do tempo das revoluções industriais">
+      <article class="timeline-card active" role="listitem" tabindex="0" data-year="1780" data-title="Indústria 1.0" data-detail="A mecanização e as máquinas a vapor transformam o trabalho artesanal em produção industrial."><div class="timeline-year">1780</div><h3>Indústria 1.0</h3><p>Mecanização, carvão e máquinas a vapor.</p></article>
+      <article class="timeline-card" role="listitem" tabindex="0" data-year="1870" data-title="Indústria 2.0" data-detail="A eletricidade, as linhas de montagem e a produção em massa aceleram a escala das fábricas."><div class="timeline-year">1870</div><h3>Indústria 2.0</h3><p>Eletricidade e produção em massa.</p></article>
+      <article class="timeline-card" role="listitem" tabindex="0" data-year="1970" data-title="Indústria 3.0" data-detail="Computadores, eletrônica e automação programável levam o controle digital para dentro da fábrica."><div class="timeline-year">1970</div><h3>Indústria 3.0</h3><p>Computadores e automação.</p></article>
+      <article class="timeline-card" role="listitem" Ftabindex="0" data-year="2010" data-title="Indústria 4.0" data-detail="Sensores, IoT, nuvem e sistemas inteligentes conectam máquinas, processos e decisões."><div class="timeline-year">2010</div><h3>Indústria 4.0</h3><p>Dados, IoT e sistemas inteligentes.</p></article>
+      <article class="timeline-card" role="listitem" tabindex="0" data-year="2020+" data-title="Indústria 5.0" data-detail="Pessoas, tecnologia e sustentabilidade passam a orientar juntas o futuro da produção."><div class="timeline-year">2020+</div><h3>Indústria 5.0</h3><p>Colaboração, propósito e sustentabilidade.</p></article>
+    </div>
+    <div class="timeline-detail" aria-live="polite"><strong id="timelineTitle">1780 / INDÚSTRIA 1.0</strong><span id="timelineDescription">A mecanização e as máquinas a vapor transformam o trabalho artesanal em produção industrial.</span></div>
   </div>
 </section>
 
@@ -422,6 +467,23 @@ document.querySelectorAll(".reveal").forEach(el => {
     scrollTrigger:{trigger:el,start:"top 82%",once:true}
   });
 });
+
+// Interactive industrial history timeline.
+const history = document.querySelector(".history");
+const timelineCards = document.querySelectorAll(".timeline-card");
+const timelineTitle = document.getElementById("timelineTitle");
+const timelineDescription = document.getElementById("timelineDescription");
+const showTimelineDetail = card => {
+  timelineCards.forEach(item => item.classList.toggle("active", item === card));
+  timelineTitle.textContent = `${card.dataset.year} / ${card.dataset.title.toUpperCase()}`;
+  timelineDescription.textContent = card.dataset.detail;
+};
+timelineCards.forEach(card => {
+  card.addEventListener("mouseenter", () => showTimelineDetail(card));
+  card.addEventListener("focus", () => showTimelineDetail(card));
+  card.addEventListener("click", () => showTimelineDetail(card));
+});
+ScrollTrigger.create({trigger:history,start:"top 75%",once:true,onEnter:() => history.classList.add("is-visible")});
 
 // A light position filter keeps section transitions fluid without steering the scroll.
 document.querySelectorAll(".section,.video-section,.footer").forEach(scene => {
