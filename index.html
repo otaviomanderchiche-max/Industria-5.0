@@ -64,7 +64,7 @@ a{color:inherit;text-decoration:none}
 .statement{background:var(--paper);color:var(--ink);overflow:hidden}
 .statement .kicker{color:#60703c}
 .statement h2{font-size:clamp(54px,8vw,126px);line-height:.88;letter-spacing:-.07em;margin:28px 0 70px;max-width:1150px}
-.statement h2 span{color:#7e8580}
+.statement h2 span{color:var(--lime)}
 .statement-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(0,0,0,.15)}
 .statement-card{min-height:330px;padding:32px;border-right:1px solid rgba(0,0,0,.15);position:relative;overflow:hidden}
 .statement-card:last-child{border-right:0}
@@ -77,6 +77,7 @@ a{color:inherit;text-decoration:none}
 .pillars-head{display:grid;grid-template-columns:1fr 1.5fr;gap:60px;align-items:end;margin-bottom:80px}
 .pillars-head h2{font-size:clamp(52px,7vw,108px);line-height:.86;letter-spacing:-.075em;margin:0}
 .pillars-head p{font-size:18px;line-height:1.55;color:#aeb4ae;max-width:580px}
+.pillars-head p .accent{color:var(--lime)}
 .pillar-stack{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .pillar{min-height:470px;border:1px solid rgba(255,255,255,.11);padding:25px;position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.008));transition:.5s}
 .pillar:hover{transform:translateY(-8px);border-color:rgba(184,255,50,.42)}
@@ -258,7 +259,7 @@ a{color:inherit;text-decoration:none}
   <div class="container">
     <div class="pillars-head">
       <div><span class="kicker">02 / Os três eixos</span><h2>Não é só<br>mais tecnologia.</h2></div>
-      <p>A Indústria 5.0 propõe uma mudança de lógica. A fábrica inteligente precisa ser eficiente — mas também humana, sustentável e capaz de reagir a mudanças.</p>
+      <p>A Indústria <span class="accent">5.0</span> propõe uma mudança de lógica. A fábrica inteligente precisa ser eficiente — mas também humana, sustentável e capaz de reagir a mudanças.</p>
     </div>
     <div class="pillar-stack">
       <article class="pillar reveal"><span class="mono">01 / HUMAN-CENTRIC</span><div class="big">H</div><h3>Humano no centro</h3><p>Robôs assumem esforço e repetição enquanto pessoas mantêm criatividade, decisão e supervisão.</p></article>
