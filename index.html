@@ -423,6 +423,21 @@ document.querySelectorAll(".reveal").forEach(el => {
   });
 });
 
+// Sections enter the viewport and fade away as they leave it.
+document.querySelectorAll(".section,.video-section,.footer").forEach(scene => {
+  const content = scene.querySelector(".container,.split");
+  if (!content) return;
+
+  gsap.fromTo(content, {opacity:.18,y:55}, {
+    opacity:1,y:0,ease:"none",
+    scrollTrigger:{trigger:scene,start:"top 88%",end:"top 28%",scrub:.7}
+  });
+  gsap.to(content, {
+    opacity:.18,y:-45,ease:"none",
+    scrollTrigger:{trigger:scene,start:"bottom 58%",end:"bottom top",scrub:.7}
+  });
+});
+
 // Pillar cursor lighting
 document.querySelectorAll(".pillar").forEach(card => {
   card.addEventListener("pointermove", e => {
