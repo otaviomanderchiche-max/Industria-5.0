@@ -423,19 +423,16 @@ document.querySelectorAll(".reveal").forEach(el => {
   });
 });
 
-// Sections enter the viewport and fade away as they leave it.
+// A light position filter keeps section transitions fluid without steering the scroll.
 document.querySelectorAll(".section,.video-section,.footer").forEach(scene => {
   const content = scene.querySelector(".container,.split");
   if (!content) return;
 
-  gsap.fromTo(content, {opacity:.18,y:55}, {
-    opacity:1,y:0,ease:"none",
-    scrollTrigger:{trigger:scene,start:"top 88%",end:"top 28%",scrub:.7}
+  const transition = gsap.timeline({
+    scrollTrigger:{trigger:scene,start:"top bottom",end:"bottom top",scrub:.25}
   });
-  gsap.to(content, {
-    opacity:.18,y:-45,ease:"none",
-    scrollTrigger:{trigger:scene,start:"bottom 58%",end:"bottom top",scrub:.7}
-  });
+  transition.fromTo(content, {opacity:.58,y:16}, {opacity:1,y:0,duration:.35,ease:"none"});
+  transition.to(content, {opacity:.58,y:-16,duration:.65,ease:"none"});
 });
 
 // Pillar cursor lighting
