@@ -52,7 +52,7 @@ a{color:inherit;text-decoration:none}
 .hero-orbit{position:absolute;right:10%;top:20%;width:34vw;height:34vw;border:1px solid rgba(184,255,50,.2);border-radius:50%;box-shadow:inset 0 0 80px rgba(184,255,50,.03),0 0 80px rgba(184,255,50,.04)}
 .hero-orbit:before,.hero-orbit:after{content:"";position:absolute;inset:12%;border:1px dashed rgba(255,255,255,.13);border-radius:50%}
 .hero-orbit:after{inset:31%;border-style:solid;border-color:rgba(114,231,255,.22)}
-.hero-content{position:relative;z-index:2;padding:0 0 76px;width:100%}
+.hero-content{position:relative;z-index:2;padding:0 0 76px clamp(40px,8vw,160px);width:100%}
 .hero-label{display:flex;justify-content:space-between;align-items:end;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:26px}
 .hero-title{font-size:clamp(64px,10vw,170px);line-height:.79;letter-spacing:-.085em;margin:0;max-width:1120px;font-weight:900}
 .hero-title em{font-style:normal;color:var(--lime)}
@@ -198,6 +198,7 @@ a{color:inherit;text-decoration:none}
   .nav{display:none}
   .hero-sub,.pillars-head,.blueprint-wrap,.exploded-layout,.split{grid-template-columns:1fr}
   .hero{min-height:850px}
+  .hero-content{padding-left:0}
   .hero-orbit{width:70vw;height:70vw;right:-15%;top:20%}
   .statement-grid,.pillar-stack,.flow-track,.gallery-grid{grid-template-columns:1fr}
   .statement-card,.pillar,.flow-card{border-right:0;border-bottom:1px solid rgba(0,0,0,.14)}
@@ -459,7 +460,7 @@ gsap.utils.toArray(".flow-line").forEach(line => {
 // Video loads only on click, avoiding autoplay/embed failures.
 document.getElementById("playVideo").addEventListener("click", () => {
   const frame = document.getElementById("videoFrame");
-  frame.src = "https://www.youtube-nocookie.com/embed/fzz1FNryAbk?autoplay=1&rel=0&modestbranding=1&playsinline=1";
+  frame.src = "https://www.youtube-nocookie.com/embed/fzz1FNryAbk?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1";
   frame.style.display = "block";
   document.querySelector(".video-poster").style.display = "none";
   document.getElementById("playVideo").style.display = "none";
