@@ -56,7 +56,7 @@ Altere o MCP no Site, teste as ferramentas e publique o Site novamente. A republ
 
 ## 7. Compartilhamento futuro
 
-A API já preserva os papéis `owner`, `editor` e `viewer`. Nesta primeira versão o token representa o proprietário. Quando o NEXUS for compartilhado, a autenticação pode evoluir para OAuth mantendo o mesmo contrato das ferramentas, sem alterar a persistência GitHub.
+A API já preserva os papéis `owner`, `editor` e `viewer`. Nesta primeira versão o token representa o proprietário. Quando o NEXUS for compartilhado, a autenticação pode evoluir para OAuth mantendo o mesmo contrato das ferramentas, sem alterar a persistência GitHub. O compartilhamento de plugins/Sites continua sujeito ao plano e às permissões do ChatGPT disponíveis naquele momento.
 
 ## 8. Persistência GitHub do NEXUS
 

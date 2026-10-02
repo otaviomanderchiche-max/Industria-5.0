@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createApp } from '../src/app.js';
+function baseDeps(){const repo={getPublicGraph:async()=>({nodes:[],edges:[]}),getGraph:async()=>({nodes:[{id:'n1'}],edges:[]})};return{workspaceId:'w1',repo,authStore:{getAdminHash:async()=>null,setAdminHash:async()=>{}},sessionManager:{getSession:async id=>id==='session-ok'?{userId:'u1',workspaceId:'w1',role:'owner',source:'web'}:null,createSession:async()=>({id:'s1'}),revokeSession:async()=>{}},ownerContext:{userId:'u1',workspaceId:'w1',role:'owner',source:'web'},resolveBearerActor:async token=>token==='token-ok'?{userId:'u1',workspaceId:'w1',role:'owner',source:'chatgpt'}:null};}
+test('app serves public graph without credentials',async()=>{const app=createApp(baseDeps());const r=await app.handle({method:'GET',path:'/api/v2/public/graph',headers:{}});assert.equal(r.status,200);});
+test('app resolves bearer actor for v2 API',async()=>{const app=createApp(baseDeps());const r=await app.handle({method:'GET',path:'/api/v2/graph',headers:{authorization:'Bearer token-ok'}});assert.equal(r.status,200);assert.equal(r.body.nodes[0].id,'n1');});
+test('app resolves browser session cookie for admin status',async()=>{const app=createApp(baseDeps());const r=await app.handle({method:'GET',path:'/api/auth/status',headers:{cookie:'nexus_session=session-ok'}});assert.equal(r.status,200);assert.equal(r.body.admin,true);});

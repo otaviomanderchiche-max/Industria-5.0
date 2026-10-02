@@ -1,5 +1,25 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+
 const KEYLEN=32;
-export function hashOwnerToken(rawToken) { if (typeof rawToken!=='string'||rawToken.length<16) throw new Error('Owner token too short'); const salt=randomBytes(16).toString('base64url'); const digest=scryptSync(rawToken,salt,KEYLEN).toString('base64url'); return `scrypt$${salt}$${digest}`; }
-export function verifyOwnerToken(rawToken,stored) { try { const [alg,salt,digest]=String(stored).split('$'); if(alg!=='scrypt'||!salt||!digest||typeof rawToken!=='string') return false; const expected=Buffer.from(digest,'base64url'); const actual=scryptSync(rawToken,salt,expected.length); return expected.length===actual.length&&timingSafeEqual(expected,actual); } catch { return false; } }
-export async function authenticateOwnerToken(rawToken,credentialRows=[]) { for(const row of credentialRows){ if(row.revoked_at) continue; if(verifyOwnerToken(rawToken,row.token_hash)) return {credentialId:row.id,userId:row.user_id,workspaceId:row.workspace_id,role:row.role||'owner',source:'chatgpt'}; } return null; }
+export function hashOwnerToken(rawToken) {
+  if (typeof rawToken!=='string'||rawToken.length<16) throw new Error('Owner token too short');
+  const salt=randomBytes(16).toString('base64url');
+  const digest=scryptSync(rawToken,salt,KEYLEN).toString('base64url');
+  return `scrypt$${salt}$${digest}`;
+}
+export function verifyOwnerToken(rawToken,stored) {
+  try {
+    const [alg,salt,digest]=String(stored).split('$');
+    if(alg!=='scrypt'||!salt||!digest||typeof rawToken!=='string') return false;
+    const expected=Buffer.from(digest,'base64url');
+    const actual=scryptSync(rawToken,salt,expected.length);
+    return expected.length===actual.length&&timingSafeEqual(expected,actual);
+  } catch { return false; }
+}
+export async function authenticateOwnerToken(rawToken,credentialRows=[]) {
+  for(const row of credentialRows){
+    if(row.revoked_at) continue;
+    if(verifyOwnerToken(rawToken,row.token_hash)) return {credentialId:row.id,userId:row.user_id,workspaceId:row.workspace_id,role:row.role||'owner',source:'chatgpt'};
+  }
+  return null;
+}

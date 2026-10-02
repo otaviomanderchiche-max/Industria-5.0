@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import { readFile } from 'node:fs/promises';
+test('runtime source composes GitHub persistence and contains no Supabase runtime import',async()=>{const src=await readFile(new URL('../src/runtime.js',import.meta.url),'utf8');assert.match(src,/createGitHubClient/);assert.match(src,/createGitHubStateStore/);assert.match(src,/createGitHubNexusRepository/);assert.match(src,/createGitHubAuthStore/);assert.match(src,/createGitHubBlobStore/);assert.doesNotMatch(src,/supabase|Supabase/);});

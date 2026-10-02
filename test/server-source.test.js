@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import { readFile } from 'node:fs/promises';
+test('production server composes persistent runtime and does not instantiate MemoryStore',async()=>{const src=await readFile(new URL('../src/server.js',import.meta.url),'utf8');assert.match(src,/createRuntime/);assert.doesNotMatch(src,/MemoryStore|JsonStore/);assert.match(src,/http\.createServer/);});

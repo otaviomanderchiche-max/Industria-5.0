@@ -1,3 +1,253 @@
-import {createViewport,clamp,screenToWorld} from './graph.js';let graph={nodes:[],edges:[]},view=createViewport(),admin=false,selected=null,pointers=new Map(),gesture=null,raf=0;const $=s=>document.querySelector(s),world=$('#world'),edges=$('#edges'),vp=$('#viewport'),sheet=$('#sheet'),details=$('#details');const api=async(url,opt={})=>{const r=await fetch(url,{credentials:'same-origin',headers:{'content-type':'application/json',...(opt.headers||{})},...opt});let d;try{d=await r.json()}catch{d=null}if(!r.ok)throw Error(d?.error||`Erro ${r.status}`);return d};const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)};function schedule(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;render()})}function render(){world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;edges.style.transform=world.style.transform;world.innerHTML='';edges.innerHTML='';for(const e of graph.edges){const a=node(e.source),b=node(e.target);if(!a||!b)continue;const l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('x1',a.x);l.setAttribute('y1',a.y);l.setAttribute('x2',b.x);l.setAttribute('y2',b.y);l.classList.add('edge');edges.append(l)}for(const n of graph.nodes){const el=document.createElement('div');el.className=`node ${n.type||''}`;el.dataset.id=n.id;el.style.left=n.x+'px';el.style.top=n.y+'px';el.innerHTML=`<strong>${esc(n.name)}</strong><small>${esc(n.meta||'')}</small>`;el.onpointerdown=e=>nodeDown(e,n);world.append(el)}}function node(id){return graph.nodes.find(n=>n.id===id)}function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function nodeDown(e,n){e.stopPropagation();if(!admin){open(n);return}e.currentTarget.setPointerCapture(e.pointerId);gesture={kind:'node',id:n.id,sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y,moved:false}}vp.onpointerdown=e=>{if(e.target.closest('.node'))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});vp.setPointerCapture(e.pointerId);if(pointers.size===1)gesture={kind:'pan',sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y};else if(pointers.size===2){const [a,b]=[...pointers.values()];gesture={kind:'pinch',dist:Math.hypot(a.x-b.x,a.y-b.y),scale:view.scale}}};vp.onpointermove=e=>{if(gesture?.kind==='node'){const n=node(gesture.id);if(!n)return;n.x=gesture.ox+(e.clientX-gesture.sx)/view.scale;n.y=gesture.oy+(e.clientY-gesture.sy)/view.scale;gesture.moved=true;schedule();return}if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(gesture?.kind==='pan'&&pointers.size===1){view.x=gesture.ox+e.clientX-gesture.sx;view.y=gesture.oy+e.clientY-gesture.sy;schedule()}else if(gesture?.kind==='pinch'&&pointers.size===2){const[a,b]=[...pointers.values()];view.scale=clamp(gesture.scale*Math.hypot(a.x-b.x,a.y-b.y)/gesture.dist,.35,2.2);schedule()}};const up=async e=>{pointers.delete(e.pointerId);if(gesture?.kind==='node'){const n=node(gesture.id);if(gesture.moved)try{await save()}catch(x){toast(x.message)}else open(n)}gesture=null};vp.onpointerup=up;vp.onpointercancel=up;vp.onwheel=e=>{e.preventDefault();view.scale=clamp(view.scale*(e.deltaY>0?.9:1.1),.35,2.2);schedule()};function open(n){selected=n.id;sheet.classList.add('open');const file=n.fileId?`<div class="actions"><a href="/api/files/${encodeURIComponent(n.fileId)}" target="_blank"><button>Visualizar / baixar</button></a>${admin?'<button id="replaceFile">Substituir arquivo</button><button class="danger" id="deleteFile">Excluir arquivo</button>':''}</div>`:'';details.innerHTML=`<h2>${esc(n.name)}</h2><p>${esc(n.note||'Sem descrição.')}</p>${file}${admin?editor(n):''}`;bindEditor(n);if(admin&&n.fileId){$('#replaceFile').onclick=()=>replaceFile(n);$('#deleteFile').onclick=()=>deleteFile(n)}}
-async function replaceFile(n){if(!confirm(`Substituir “${n.name}”?`))return;const input=document.createElement('input');input.type='file';input.onchange=async()=>{const f=input.files[0];if(!f||f.size>1048576)return toast('Arquivo inválido ou maior que 1 MB');const data=await new Promise((ok,no)=>{const r=new FileReader;r.onload=()=>ok(r.result.split(',')[1]);r.onerror=no;r.readAsDataURL(f)});await api(`/api/files/${n.fileId}`,{method:'PUT',body:JSON.stringify({name:f.name,mime:f.type,data})});n.name=f.name;n.fileMime=f.type;await save();render();open(n);toast('Arquivo substituído')};input.click()}
-async function deleteFile(n){if(!confirm(`Excluir arquivo “${n.name}”?`))return;await api(`/api/files/${n.fileId}`,{method:'DELETE'});graph.nodes=graph.nodes.filter(x=>x.id!==n.id);graph.edges=graph.edges.filter(e=>e.source!==n.id&&e.target!==n.id);await save();sheet.classList.remove('open');render();toast('Arquivo excluído')}function editor(n){return `<div><input class="field" id="name" value="${esc(n.name)}"><input class="field" id="meta" value="${esc(n.meta||'')}"><textarea class="field" id="note">${esc(n.note||'')}</textarea><div class="actions"><button id="save">Salvar</button><button id="sub">Adicionar subbloco</button><button id="link">Gerenciar conexões</button>${n.type==='root'?'':'<button class="danger" id="del">Excluir</button>'}<button id="pass">Alterar senha</button></div></div>`}function bindEditor(n){if(!admin)return;$('#save').onclick=async()=>{n.name=$('#name').value.trim()||n.name;n.meta=$('#meta').value.trim();n.note=$('#note').value.trim();await save();render();open(n);toast('Salvo')};$('#sub').onclick=async()=>{const name=prompt('Nome do subbloco');if(!name)return;const id=crypto.randomUUID();graph.nodes.push({id,name,type:'project',x:n.x+160,y:n.y+120,meta:n.name,note:''});graph.edges.push({source:n.id,target:id});await save();render();toast('Subbloco criado')};$('#link').onclick=()=>connectionModal(n);$('#del')?.addEventListener('click',async()=>{if(!confirm(`Excluir “${n.name}”?`))return;graph.nodes=graph.nodes.filter(x=>x.id!==n.id);graph.edges=graph.edges.filter(e=>e.source!==n.id&&e.target!==n.id);await save();sheet.classList.remove('open');render()});$('#pass').onclick=()=>passwordModal()}async function save(){await api('/api/graph',{method:'PUT',body:JSON.stringify(graph)})}function connectionModal(n){const others=graph.nodes.filter(x=>x.id!==n.id);$('#modal').innerHTML=`<form><h2>Conexões de ${esc(n.name)}</h2>${others.map(x=>{const on=graph.edges.some(e=>(e.source===n.id&&e.target===x.id)||(e.target===n.id&&e.source===x.id));return `<label style="display:block;padding:8px"><input type="checkbox" data-id="${x.id}" ${on?'checked':''}> ${esc(x.name)}</label>`}).join('')}<button>Salvar conexões</button></form>`;$('#modal form').onsubmit=async e=>{e.preventDefault();graph.edges=graph.edges.filter(x=>x.source!==n.id&&x.target!==n.id);for(const c of $('#modal').querySelectorAll('input:checked'))graph.edges.push({source:n.id,target:c.dataset.id});await save();$('#modal').innerHTML='';render();toast('Conexões salvas')}}function authModal(setup=false){$('#modal').innerHTML=`<form><h2>${setup?'Criar administrador':'Acessar modo administrativo'}</h2><p>${setup?'Escolha uma senha com pelo menos 12 caracteres.':'Digite sua senha administrativa.'}</p><input class="field" id="pw" type="password" minlength="12" required autocomplete="current-password"><button>${setup?'Criar acesso':'Entrar'}</button></form>`;$('#modal form').onsubmit=async e=>{e.preventDefault();try{await api(setup?'/api/auth/setup':'/api/auth/login',{method:'POST',body:JSON.stringify({password:$('#pw').value})});$('#modal').innerHTML='';await status();toast('Modo administrativo ativado')}catch(x){toast(x.message)}}}function passwordModal(){$('#modal').innerHTML='<form><h2>Alterar senha</h2><input class="field" id="pw" type="password" minlength="12" required><button>Salvar nova senha</button></form>';$('#modal form').onsubmit=async e=>{e.preventDefault();try{await api('/api/auth/password',{method:'PUT',body:JSON.stringify({password:$('#pw').value})});$('#modal').innerHTML='';toast('Senha alterada')}catch(x){toast(x.message)}}}async function status(){const s=await api('/api/auth/status');admin=s.admin;$('#mode').textContent=admin?'Modo administrativo':'Visualização';$('#adminBtn').textContent=admin?'Sair do modo administrativo':'Acessar modo administrativo';$('#addNode').hidden=!admin;$('#upload').hidden=!admin;return s}$('#adminBtn').onclick=async()=>{const s=await status();if(admin){await api('/api/auth/logout',{method:'POST'});await status();sheet.classList.remove('open');toast('Modo administrativo encerrado')}else authModal(!s.configured)};$('#close').onclick=()=>sheet.classList.remove('open');$('#addNode').onclick=async()=>{const name=prompt('Nome do novo nó');if(!name)return;graph.nodes.push({id:crypto.randomUUID(),name,type:'project',x:0,y:0,meta:'',note:''});await save();render()};$('#upload').onclick=()=>$('#file').click();$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.size>1048576)return toast('Limite de 1 MB');const data=await new Promise((ok,no)=>{const r=new FileReader;r.onload=()=>ok(r.result.split(',')[1]);r.onerror=no;r.readAsDataURL(f)});const m=await api('/api/files',{method:'POST',body:JSON.stringify({name:f.name,mime:f.type,data})});graph.nodes.push({id:crypto.randomUUID(),name:f.name,type:'file',x:100,y:100,meta:'Arquivo',note:'',fileId:m.id,fileMime:m.mime});await save();render();toast('Arquivo enviado')};$('#search').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.node').forEach(el=>el.style.opacity=!q||node(el.dataset.id).name.toLowerCase().includes(q)?'1':'.18')};(async()=>{graph=await api('/api/graph');await status();render()})().catch(x=>toast(x.message));
+import {createViewport,clamp} from './graph.js';
+import {createAdminUi} from './admin-ui.js';
+
+let graph={nodes:[],edges:[]};
+let view=createViewport();
+let admin=false;
+let selected=null;
+let pointers=new Map();
+let gesture=null;
+let raf=0;
+
+const MAX_FILE_BYTES=20*1024*1024;
+const $=s=>document.querySelector(s);
+const world=$('#world');
+const edgesSvg=$('#edges');
+const viewport=$('#viewport');
+const sheet=$('#sheet');
+const details=$('#details');
+
+async function api(url,opt={}){
+  const headers={...(opt.headers||{})};
+  if(opt.body!==undefined&&!headers['content-type'])headers['content-type']='application/json';
+  const response=await fetch(url,{credentials:'same-origin',...opt,headers});
+  let data=null;
+  try{data=await response.json()}catch{}
+  if(!response.ok)throw new Error(data?.error||`Erro ${response.status}`);
+  return data;
+}
+
+function toast(text){
+  const el=$('#toast');
+  el.textContent=text;
+  el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'),1800);
+}
+
+function esc(value){
+  return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function node(id){return graph.nodes.find(n=>n.id===id)}
+function edgeBetween(a,b){return graph.edges.find(e=>(e.source===a&&e.target===b)||(e.source===b&&e.target===a))}
+
+function schedule(){
+  if(!raf)raf=requestAnimationFrame(()=>{raf=0;render()});
+}
+
+function render(){
+  const transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;
+  world.style.transform=transform;
+  edgesSvg.style.transform=transform;
+  world.innerHTML='';
+  edgesSvg.innerHTML='';
+  for(const edge of graph.edges){
+    const a=node(edge.source),b=node(edge.target);
+    if(!a||!b)continue;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',a.x);line.setAttribute('y1',a.y);
+    line.setAttribute('x2',b.x);line.setAttribute('y2',b.y);
+    line.classList.add('edge');
+    edgesSvg.append(line);
+  }
+  for(const n of graph.nodes){
+    const el=document.createElement('div');
+    el.className=`node ${n.type||''}`;
+    el.dataset.id=n.id;
+    el.style.left=`${n.x}px`;
+    el.style.top=`${n.y}px`;
+    el.innerHTML=`<strong>${esc(n.name)}</strong><small>${esc(n.meta||'')}</small>`;
+    el.onpointerdown=e=>nodeDown(e,n);
+    world.append(el);
+  }
+  applySearch($('#search').value);
+}
+
+async function refreshGraph(){
+  graph=await api(admin?'/api/v2/graph':'/api/v2/public/graph');
+  render();
+  return graph;
+}
+
+function nodeDown(event,n){
+  event.stopPropagation();
+  if(!admin){openNode(n);return}
+  event.currentTarget.setPointerCapture(event.pointerId);
+  gesture={kind:'node',id:n.id,sx:event.clientX,sy:event.clientY,ox:n.x,oy:n.y,moved:false};
+}
+
+viewport.onpointerdown=event=>{
+  if(event.target.closest('.node'))return;
+  pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  viewport.setPointerCapture(event.pointerId);
+  if(pointers.size===1){
+    gesture={kind:'pan',sx:event.clientX,sy:event.clientY,ox:view.x,oy:view.y};
+  }else if(pointers.size===2){
+    const [a,b]=[...pointers.values()];
+    gesture={kind:'pinch',dist:Math.hypot(a.x-b.x,a.y-b.y),scale:view.scale};
+  }
+};
+
+viewport.onpointermove=event=>{
+  if(gesture?.kind==='node'){
+    const n=node(gesture.id);if(!n)return;
+    n.x=gesture.ox+(event.clientX-gesture.sx)/view.scale;
+    n.y=gesture.oy+(event.clientY-gesture.sy)/view.scale;
+    gesture.moved=true;schedule();return;
+  }
+  if(pointers.has(event.pointerId))pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if(gesture?.kind==='pan'&&pointers.size===1){
+    view.x=gesture.ox+event.clientX-gesture.sx;
+    view.y=gesture.oy+event.clientY-gesture.sy;
+    schedule();
+  }else if(gesture?.kind==='pinch'&&pointers.size===2){
+    const [a,b]=[...pointers.values()];
+    view.scale=clamp(gesture.scale*Math.hypot(a.x-b.x,a.y-b.y)/gesture.dist,.35,2.2);
+    schedule();
+  }
+};
+
+const pointerUp=async event=>{
+  pointers.delete(event.pointerId);
+  const finished=gesture;
+  gesture=null;
+  if(finished?.kind==='node'){
+    const n=node(finished.id);
+    if(!n)return;
+    if(!finished.moved){openNode(n);return}
+    try{
+      await api(`/api/v2/nodes/${encodeURIComponent(n.id)}`,{method:'PATCH',body:JSON.stringify({x:n.x,y:n.y})});
+    }catch(error){
+      n.x=finished.ox;n.y=finished.oy;render();toast(error.message);
+    }
+  }
+};
+viewport.onpointerup=pointerUp;
+viewport.onpointercancel=pointerUp;
+viewport.onwheel=event=>{event.preventDefault();view.scale=clamp(view.scale*(event.deltaY>0?.9:1.1),.35,2.2);schedule()};
+
+async function listNodeFiles(n){
+  const base=admin?'/api/v2':'/api/v2/public';
+  return api(`${base}/nodes/${encodeURIComponent(n.id)}/files`);
+}
+
+function fileContentUrl(fileId){
+  const base=admin?'/api/v2':'/api/v2/public';
+  return `${base}/files/${encodeURIComponent(fileId)}/content`;
+}
+
+function filesHtml(files){
+  if(!files.length)return '<p><small>Nenhum arquivo ligado a este bloco.</small></p>';
+  return `<div>${files.map(f=>`<div class="actions" data-file="${esc(f.id)}"><a href="${fileContentUrl(f.id)}" target="_blank" rel="noopener"><button>Visualizar / baixar: ${esc(f.name)}</button></a>${admin?'<button class="replace-file">Substituir arquivo</button><button class="danger delete-file">Excluir</button>':''}</div>`).join('')}</div>`;
+}
+
+async function openNode(n){
+  selected=n.id;
+  sheet.classList.add('open');
+  details.innerHTML=`<h2>${esc(n.name)}</h2><p>${esc(n.note||'Sem descrição.')}</p><p><small>Carregando arquivos…</small></p>${admin?editorHtml(n):''}`;
+  if(admin)bindEditor(n);
+  try{
+    const files=await listNodeFiles(n);
+    const current=node(n.id)||n;
+    details.innerHTML=`<h2>${esc(current.name)}</h2><p>${esc(current.note||'Sem descrição.')}</p>${filesHtml(files)}${admin?editorHtml(current):''}`;
+    if(admin){bindEditor(current);bindFileActions(current,files)}
+  }catch(error){toast(error.message)}
+}
+
+function editorHtml(n){
+  return `<div><input class="field" id="name" value="${esc(n.name)}"><input class="field" id="meta" value="${esc(n.meta||'')}"><textarea class="field" id="note">${esc(n.note||'')}</textarea><div class="actions"><button id="save">Salvar</button><button id="sub">Adicionar subbloco</button><button id="link">Gerenciar conexões</button>${n.type==='root'?'':'<button class="danger" id="del">Excluir</button>'}<button id="pass">Alterar senha</button></div></div>`;
+}
+
+function bindEditor(n){
+  if(!admin)return;
+  $('#save')?.addEventListener('click',async()=>{
+    try{
+      const patch={name:$('#name').value.trim()||n.name,meta:$('#meta').value.trim(),note:$('#note').value.trim()};
+      const updated=await api(`/api/v2/nodes/${encodeURIComponent(n.id)}`,{method:'PATCH',body:JSON.stringify(patch)});
+      Object.assign(n,updated);render();await openNode(n);toast('Salvo');
+    }catch(error){toast(error.message)}
+  });
+  $('#sub')?.addEventListener('click',async()=>{
+    const name=prompt('Nome do subbloco');if(!name)return;
+    try{
+      const child=await api('/api/v2/nodes',{method:'POST',body:JSON.stringify({name,type:'project',x:n.x+160,y:n.y+120,meta:n.name,note:''})});
+      await api('/api/v2/edges',{method:'POST',body:JSON.stringify({source:n.id,target:child.id})});
+      await refreshGraph();toast('Subbloco criado');
+    }catch(error){toast(error.message)}
+  });
+  $('#link')?.addEventListener('click',()=>adminUi.connectionModal(n));
+  $('#del')?.addEventListener('click',()=>adminUi.deleteNode(n));
+  $('#pass')?.addEventListener('click',adminUi.passwordModal);
+}
+
+function bindFileActions(n,files){
+  for(const row of details.querySelectorAll('[data-file]')){
+    const file=files.find(f=>f.id===row.dataset.file);if(!file)continue;
+    row.querySelector('.replace-file')?.addEventListener('click',()=>replaceFile(n,file));
+    row.querySelector('.delete-file')?.addEventListener('click',()=>adminUi.deleteFile(n,file));
+  }
+}
+
+function readFileBase64(file){
+  return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=reject;r.readAsDataURL(file)});
+}
+
+async function replaceFile(n,file){
+  const input=document.createElement('input');input.type='file';
+  input.onchange=async()=>{
+    const picked=input.files?.[0];if(!picked)return;
+    if(picked.size>MAX_FILE_BYTES)return toast('Limite de 20 MB');
+    try{
+      const data=await readFileBase64(picked);
+      await api(`/api/v2/files/${encodeURIComponent(file.id)}`,{method:'PUT',body:JSON.stringify({name:picked.name,mime:picked.type||'application/octet-stream',data})});
+      await openNode(n);toast('Arquivo substituído');
+    }catch(error){toast(error.message)}
+  };
+  input.click();
+}
+
+let adminUi;
+
+adminUi=createAdminUi({api,$,esc,toast,getGraph:()=>graph,edgeBetween,refreshGraph,sheet,openNode,getAdmin:()=>admin,setAdmin:value=>{admin=value}});
+$('#chatgptAccess').onclick=()=>adminUi.chatgptAccessModal();
+$('#adminBtn').onclick=()=>adminUi.toggleAdmin();
+
+$('#close').onclick=()=>sheet.classList.remove('open');
+
+$('#addNode').onclick=async()=>{
+  const name=prompt('Nome do novo nó');if(!name)return;
+  try{await api('/api/v2/nodes',{method:'POST',body:JSON.stringify({name,type:'project',x:0,y:0,meta:'',note:''})});await refreshGraph();toast('Nó criado')}catch(error){toast(error.message)}
+};
+
+$('#upload').onclick=()=>$('#file').click();
+$('#file').onchange=async event=>{
+  const file=event.target.files?.[0];event.target.value='';if(!file)return;
+  if(file.size>MAX_FILE_BYTES)return toast('Limite de 20 MB');
+  try{
+    const fileNode=await api('/api/v2/nodes',{method:'POST',body:JSON.stringify({name:file.name,type:'file',x:100,y:100,meta:'Arquivo',note:''})});
+    const data=await readFileBase64(file);
+    await api('/api/v2/files',{method:'POST',body:JSON.stringify({name:file.name,mime:file.type||'application/octet-stream',data,nodeIds:[fileNode.id]})});
+    await refreshGraph();toast('Arquivo enviado');
+  }catch(error){toast(error.message)}
+};
+
+function applySearch(value){
+  const q=String(value||'').toLowerCase();
+  document.querySelectorAll('.node').forEach(el=>{const n=node(el.dataset.id);el.style.opacity=!q||n?.name?.toLowerCase().includes(q)?'1':'.18'});
+}
+$('#search').oninput=event=>applySearch(event.target.value);
+
+(async()=>{
+  await adminUi.status();
+  await refreshGraph();
+})().catch(error=>toast(error.message));

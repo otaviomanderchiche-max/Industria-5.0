@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {seedGraph} from '../src/graph/schema.js';test('application seed is healthy',()=>{const g=seedGraph();assert.ok(g.nodes.length>=4);assert.ok(g.edges.length>=3)});
