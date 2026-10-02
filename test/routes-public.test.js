@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {handlePublicRequest} from '../src/routes/public.js';
+test('public graph returns current public graph only',async()=>{const repo={getPublicGraph:async id=>({nodes:[{id:'n1'}],edges:[],workspace:id})};const r=await handlePublicRequest({method:'GET',path:'/api/v2/public/graph'},{repo,workspaceId:'w1'});assert.equal(r.status,200);assert.deepEqual(r.body.nodes,[{id:'n1'}]);assert.equal('credential' in r.body,false)});
+test('health remains public',async()=>assert.deepEqual(await handlePublicRequest({method:'GET',path:'/api/health'},{}),{status:200,body:{ok:true}}));
