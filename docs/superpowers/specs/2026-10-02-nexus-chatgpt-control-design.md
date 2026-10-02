@@ -18,6 +18,9 @@ Requisitos já aprovados:
 - exclusões sempre exigem confirmação explícita;
 - dados não podem depender da memória efêmera da instância Render;
 - alterações feitas pelo site e pelo ChatGPT devem aparecer uma para a outra imediatamente após nova leitura/atualização;
+- o modo público de leitura atual deve continuar disponível;
+- o botão atual de acesso ao modo administrativo deve ser preservado como experiência de entrada;
+- um arquivo pode estar relacionado a vários nós;
 - segredos nunca ficam em JavaScript público, GitHub ou mensagens do ChatGPT.
 
 ## 2. Estado atual e risco de migração
@@ -72,14 +75,18 @@ O Render continua responsável pela aplicação web existente e por uma API de d
 
 A primeira versão terá somente o proprietário.
 
-- O plugin se conecta ao NEXUS com uma credencial individual do proprietário.
-- A credencial é armazenada somente em camada server-side/conexão segura, nunca no frontend e nunca no repositório.
+- O botão **Acessar modo administrativo** continua existindo no site.
+- O estado de autenticação deixa de ficar na memória do Render e passa a ser persistente.
+- A identidade do proprietário fica associada a um perfil no banco.
+- O plugin usa uma credencial individual e revogável vinculada ao mesmo perfil do proprietário.
+- A credencial do plugin é armazenada somente em camada server-side/conexão segura, nunca no frontend e nunca no repositório.
 - No banco, a credencial é armazenada apenas como hash/identificador revogável.
-- Cada chamada é resolvida para `user_id`, `workspace_id` e papel `owner`.
+- Cada chamada é resolvida para `profile_id`, `workspace_id` e papel `owner`.
+- Nenhuma senha administrativa existente será copiada para código ou plugin; a migração de autenticação ocorrerá por um fluxo seguro de configuração/redefinição.
 
 ### Fase 2 — compartilhamento futuro
 
-A API e o banco já serão multiusuário desde o início. Quando o produto for compartilhado, a autenticação migra para Supabase Auth/OAuth 2.1 sem alterar o contrato das ferramentas.
+A API e o banco já serão multiusuário desde o início. Quando o produto for compartilhado, a autenticação poderá migrar para Supabase Auth/OAuth 2.1 sem alterar o contrato das ferramentas ou o modelo de conteúdo.
 
 Papéis previstos:
 
@@ -95,22 +102,24 @@ O Supabase suporta OAuth 2.1 e autenticação de agentes/MCP, permitindo posteri
 
 - `id uuid pk`
 - `name text`
-- `owner_user_id uuid`
+- `owner_profile_id uuid`
+- `public_read boolean default true`
 - `created_at timestamptz`
 - `updated_at timestamptz`
 
 ### `profiles`
 
-- `id uuid pk` — associado ao usuário autenticado
+- `id uuid pk`
+- `auth_user_id uuid null` — permite associação futura ao Supabase Auth sem trocar IDs internos
 - `display_name text`
 - `created_at timestamptz`
 
 ### `workspace_members`
 
 - `workspace_id uuid`
-- `user_id uuid`
+- `profile_id uuid`
 - `role text` (`owner`, `editor`, `viewer`)
-- chave única `(workspace_id, user_id)`
+- chave única `(workspace_id, profile_id)`
 
 ### `nodes`
 
@@ -143,7 +152,6 @@ O Supabase suporta OAuth 2.1 e autenticação de agentes/MCP, permitindo posteri
 
 - `id uuid pk`
 - `workspace_id uuid`
-- `node_id uuid null`
 - `name text`
 - `storage_path text`
 - `mime_type text`
@@ -154,11 +162,22 @@ O Supabase suporta OAuth 2.1 e autenticação de agentes/MCP, permitindo posteri
 - `updated_at timestamptz`
 - `deleted_at timestamptz null`
 
+### `node_files`
+
+Permite que o mesmo arquivo apareça em vários nós.
+
+- `node_id uuid`
+- `file_id uuid`
+- `workspace_id uuid`
+- `created_by uuid`
+- `created_at timestamptz`
+- chave única `(node_id, file_id)`
+
 ### `activity_log`
 
 - `id uuid pk`
 - `workspace_id uuid`
-- `actor_user_id uuid`
+- `actor_profile_id uuid null`
 - `source text` (`web`, `chatgpt`, `system`)
 - `action text`
 - `target_type text`
@@ -170,7 +189,7 @@ O Supabase suporta OAuth 2.1 e autenticação de agentes/MCP, permitindo posteri
 ### `api_credentials` — fase 1
 
 - `id uuid pk`
-- `user_id uuid`
+- `profile_id uuid`
 - `workspace_id uuid`
 - `token_hash text`
 - `label text`
@@ -182,25 +201,35 @@ O Supabase suporta OAuth 2.1 e autenticação de agentes/MCP, permitindo posteri
 
 - `id uuid pk`
 - `workspace_id uuid`
-- `actor_user_id uuid`
+- `actor_profile_id uuid`
 - `action text`
 - `payload jsonb`
 - `preview jsonb`
 - `expires_at timestamptz`
 - `consumed_at timestamptz null`
 
-## 6. Segurança e RLS
+## 6. Segurança, acesso público e RLS
 
 Todas as tabelas expostas terão RLS ativado.
 
-Políticas devem validar participação no workspace, não apenas `TO authenticated`.
+Políticas autenticadas devem validar participação no workspace, não apenas `TO authenticated`.
 
-Regras:
+Regras autenticadas:
 
 - `viewer`: SELECT no workspace autorizado;
 - `editor`: SELECT/INSERT/UPDATE no workspace autorizado;
 - `owner`: mesmas permissões + operações administrativas;
-- DELETE físico não será usado para conteúdo normal; exclusões usam `deleted_at` primeiro;
+- DELETE físico não será usado para conteúdo normal; exclusões usam `deleted_at` primeiro.
+
+Regras públicas:
+
+- `anon` pode ler apenas conteúdo ativo de workspaces com `public_read = true`;
+- `anon` nunca pode inserir, editar, conectar, enviar arquivo ou excluir;
+- metadados privados e `activity_log` não são expostos no modo público;
+- arquivos permanecem em Storage privado; acesso público, quando permitido, passa por endpoint controlado/signed URL de curta duração.
+
+Demais regras:
+
 - Storage terá políticas equivalentes ao workspace;
 - `service_role`/secret key nunca será exposta no browser;
 - funções privilegiadas, se necessárias, ficam fora de schema público e terão validação explícita de identidade;
@@ -218,6 +247,7 @@ Endpoints de leitura:
 - `GET /api/v2/nodes/:id`
 - `GET /api/v2/search?q=`
 - `GET /api/v2/nodes/:id/files`
+- `GET /api/v2/files/:id`
 - `GET /api/v2/activity`
 
 Endpoints de escrita:
@@ -225,8 +255,10 @@ Endpoints de escrita:
 - `POST /api/v2/nodes`
 - `PATCH /api/v2/nodes/:id`
 - `POST /api/v2/edges`
-- `PATCH /api/v2/files/:id`
 - `POST /api/v2/files`
+- `PATCH /api/v2/files/:id`
+- `POST /api/v2/node-files`
+- `DELETE /api/v2/node-files/:nodeId/:fileId` — somente por fluxo destrutivo confirmado
 
 Exclusões usam duas etapas:
 
@@ -255,6 +287,7 @@ Ferramentas de escrita não destrutiva:
 - `nexus_connect_nodes`
 - `nexus_update_connection`
 - `nexus_upload_file`
+- `nexus_attach_file_to_node`
 - `nexus_replace_file`
 
 Ferramentas destrutivas:
@@ -265,8 +298,14 @@ Ferramentas destrutivas:
 - `nexus_confirm_delete_file`
 - `nexus_prepare_disconnect_nodes`
 - `nexus_confirm_disconnect_nodes`
+- `nexus_prepare_detach_file`
+- `nexus_confirm_detach_file`
 
 As ferramentas `confirm_*` nunca serão chamadas sem uma confirmação explícita do usuário após o preview.
+
+### Observação sobre anexos enviados no chat
+
+A ferramenta de upload será implementada para consumir o formato de arquivo/referência que a superfície de plugin disponibilizar. Esse caminho será testado explicitamente durante a integração. Se uma superfície específica não entregar os bytes/referência do anexo à ferramenta, o restante do plugin continua funcional e o upload poderá ser feito pelo próprio NEXUS até a superfície suportar a passagem do arquivo.
 
 ## 9. Comportamento esperado no ChatGPT
 
@@ -305,14 +344,14 @@ Ordem obrigatória:
 3. capturar arquivos referenciados quando acessíveis;
 4. criar Supabase;
 5. criar schema + RLS + Storage;
-6. criar workspace inicial;
+6. criar perfil do proprietário e workspace inicial;
 7. importar nós mantendo `legacy_id`;
 8. converter edges para UUIDs;
-9. importar arquivos;
+9. importar arquivos e relações `node_files`;
 10. comparar contagens e amostras;
 11. atualizar backend para Supabase;
-12. validar site em leitura;
-13. validar escrita manual;
+12. validar modo público de leitura;
+13. validar modo administrativo e escrita manual;
 14. só então habilitar plugin/MCP.
 
 ## 12. Testes mínimos de aceitação
@@ -333,10 +372,12 @@ Ordem obrigatória:
 
 ### Segurança
 
-- chamada sem credencial: 401;
+- chamada privada sem credencial: 401;
 - credencial revogada: 401;
 - viewer tentando escrever: 403;
 - usuário A não acessa workspace B;
+- visitante público consegue apenas leitura de workspace público;
+- visitante público não consegue escrever;
 - token nunca aparece nos logs;
 - Storage bloqueia arquivo fora do workspace autorizado.
 
@@ -348,6 +389,12 @@ Ordem obrigatória:
 - id reutilizado: falha;
 - confirmação válida: soft-delete + activity log.
 
+### Arquivos
+
+- mesmo arquivo pode ser associado a dois ou mais nós;
+- remover associação de um nó não apaga o arquivo se ainda houver outras associações;
+- exclusão definitiva/soft-delete do arquivo sempre exige confirmação.
+
 ### Plugin
 
 - plugin instalado aparece em Plugins > Personal;
@@ -355,7 +402,8 @@ Ordem obrigatória:
 - busca funciona;
 - criação funciona;
 - exclusão exige confirmação;
-- alteração pode ser confirmada visualmente no NEXUS.
+- alteração pode ser confirmada visualmente no NEXUS;
+- upload de anexo é validado nas superfícies em que a plataforma fornecer o arquivo à ferramenta.
 
 ## 13. Implantação e rollback
 
@@ -406,8 +454,10 @@ O projeto só será considerado concluído quando:
 1. o NEXUS sobreviver a restart/redeploy sem perder dados;
 2. o estado atual tiver sido migrado e conferido;
 3. site e ChatGPT operarem sobre a mesma fonte de verdade;
-4. `@NEXUS` funcionar em uma conversa nova;
-5. leitura e escrita não destrutiva funcionarem;
-6. toda exclusão exigir confirmação explícita;
-7. auditoria registrar alterações feitas pelo site e pelo ChatGPT;
-8. nenhum segredo privilegiado estiver no frontend ou repositório.
+4. o modo público continuar funcionando em leitura;
+5. `@NEXUS` funcionar em uma conversa nova;
+6. leitura e escrita não destrutiva funcionarem;
+7. toda exclusão exigir confirmação explícita;
+8. auditoria registrar alterações feitas pelo site e pelo ChatGPT;
+9. arquivos puderem se relacionar com vários nós;
+10. nenhum segredo privilegiado estiver no frontend ou repositório.
