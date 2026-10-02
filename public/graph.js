@@ -1,0 +1,1 @@
+export function createViewport(){return{x:0,y:30,scale:.82}}export function clamp(v,a,b){return Math.max(a,Math.min(b,v))}export function screenToWorld(p,v){return{x:(p.x-v.x)/v.scale,y:(p.y-v.y)/v.scale}}
